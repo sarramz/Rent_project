@@ -9,8 +9,8 @@ client = MongoClient(uri, server_api=ServerApi('1'))
 db = client.rent  
 
 # Collections
-#user_collection = db["users"]
 property_collection = db["property"]
+user_collection = db["users"] 
 #reservation_collection = db["reservations"]
 
 # Send a ping to confirm a successful connection
