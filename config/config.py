@@ -12,6 +12,7 @@ db = client.rent
 property_collection = db["property"]
 user_collection = db["users"] 
 reservation_collection = db["reservations"]
+comment_collection = db["comments"]
 
 # Send a ping to confirm a successful connection
 try:
