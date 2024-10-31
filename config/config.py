@@ -14,6 +14,8 @@ user_collection = db["users"]
 reservation_collection = db["reservations"]
 comment_collection = db["comments"]
 notification_collection = db["notifications"]
+reclamation_collection = db["reclamations"]
+
 # Send a ping to confirm a successful connection
 try:
     client.admin.command('ping')
