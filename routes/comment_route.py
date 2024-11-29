@@ -1,5 +1,3 @@
-
-
 from fastapi import APIRouter, HTTPException
 from models.comment import Comment, UpdateCommentModel
 from serializers.comment_serializer import DecodeComment, DecodeComments
@@ -39,7 +37,7 @@ def get_all_comments():
 def get_comment(comment_id: str):
     # Vérifier la validité de l'ObjectId
     if not ObjectId.is_valid(comment_id):
-        raise HTTPException(status_code=400, detail="Invalid comment ID format")
+        raise HTTPException(status_code=400, detail="Format d'identifiant de comment invalide")
 
     comment = comment_collection.find_one({"_id": ObjectId(comment_id)})
     if comment:
@@ -51,7 +49,7 @@ def get_comment(comment_id: str):
 def update_comment(comment_id: str, comment: UpdateCommentModel):
     # Vérifier la validité de l'ObjectId
     if not ObjectId.is_valid(comment_id):
-        raise HTTPException(status_code=400, detail="Invalid comment ID format")
+        raise HTTPException(status_code=400, detail="Format d'identifiant de comment invalide")
 
     update_data = comment.dict(exclude_unset=True)
     updated_comment = comment_collection.find_one_and_update(
@@ -68,7 +66,7 @@ def update_comment(comment_id: str, comment: UpdateCommentModel):
 def delete_comment(comment_id: str):
     # Vérifier la validité de l'ObjectId
     if not ObjectId.is_valid(comment_id):
-        raise HTTPException(status_code=400, detail="Invalid comment ID format")
+        raise HTTPException(status_code=400, detail="Format d'identifiant de comment invalide")
 
     deleted_comment = comment_collection.find_one_and_delete({"_id": ObjectId(comment_id)})
     if deleted_comment:

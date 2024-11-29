@@ -1,12 +1,10 @@
-# models/comment.py
-
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
 class Comment(BaseModel):
-    utilisateur_id: str  # Référence à l'utilisateur
-    appartement_id: Optional[str] = None  # Référence à l'appartement (si applicable)
+    utilisateur_id: str
+    appartement_id: Optional[str] = None
     contenu: str
     date: datetime = Field(default_factory=datetime.utcnow)
 

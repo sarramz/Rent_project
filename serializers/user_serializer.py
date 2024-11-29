@@ -1,17 +1,19 @@
-def DecodeUser(user) -> dict:
+def decode_user(user: dict) -> dict:
+    """Convertit un document utilisateur MongoDB en dictionnaire serializable"""
     return {
-        "_id": str(user["_id"]),
-        "nom": user.get("nom", ""),
-        "prénom": user.get("prénom", ""),
-        "date_de_naissance": user.get("date_de_naissance", ""),
-        "téléphone": user.get("téléphone", ""),
-        "adresse": user.get("adresse", ""),
-        "email": user.get("email", ""),
-        "nom_utilisateur": user.get("nom_utilisateur", ""),
-        "mot_de_passe": user.get("mot_de_passe", ""),
-        "état": user.get("état", 1),
-        "image": user.get("image", None)
+        "id": str(user["_id"]),
+        "nom": user.get("nom"),
+        "prenom": user.get("prenom"),
+        "date_naissance": user.get("date_naissance"),
+        "telephone": user.get("telephone"),
+        "adresse": user.get("adresse"),
+        "email": user.get("email"),
+        "username": user.get("username"),
+        "etat": user.get("etat"),
+        "image": user.get("image"),
+        "role": user.get("role"),
     }
 
-def DecodeUsers(users) -> list:
-    return [DecodeUser(user) for user in users]
+def decode_users(users: list) -> list:
+    """Convertit une liste de documents utilisateurs MongoDB en liste de dictionnaires serializables"""
+    return [decode_user(user) for user in users]

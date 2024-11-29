@@ -1,74 +1,82 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from models.property import Property, UpdatePropertyModel
-from serializers.property_serializer import DecodeProperties, DecodeProperty
+from serializers.property_serializer import decode_property, decode_properties
 from bson import ObjectId
 from config.config import property_collection
-entry_root = APIRouter()
+from auth.auth import is_proprietaire, is_admin, get_current_user
 
-# Créer une nouvelle propriété
-@entry_root.post("/new/property")
-def NewProperty(doc: Property):
-    doc = dict(doc)
-    res = property_collection.insert_one(doc)
+property_router = APIRouter()
 
-    doc_id = str(res.inserted_id)
 
-    return {
-        "status": "ok",
-        "message": "Property posted successfully",
-        "_id": doc_id
-    }
+@property_router.post("/properties", response_model=dict)
+async def create_property(
+    property: Property,
+    current_user: dict = Depends(is_proprietaire)
+):
+    property_data = property.dict()
+    property_data["proprietaire_id"] = str(current_user["_id"])  # Assign the owner
+    result = property_collection.insert_one(property_data)
+    return {"status": "ok", "message": "Propriété ajoutée avec succès", "_id": str(result.inserted_id)}
 
-# Obtenir toutes les propriétés
-@entry_root.get("/all/properties")
-def AllProperties():
-    res = property_collection.find()
-    decoded_data = DecodeProperties(res)
 
-    return {
-        "status": "ok",
-        "data": decoded_data
-    }
+@property_router.get("/properties", response_model=dict)
+async def get_all_properties():
+    properties = property_collection.find()
+    return {"status": "ok", "data": decode_properties(properties)}
 
-# Obtenir une propriété par ID
-@entry_root.get("/property/{_id}")
-def GetProperty(_id: str):
-    res = property_collection.find_one({"_id": ObjectId(_id)})
-    if res:
-        decoded_property = DecodeProperty(res)
-        return {
-            "status": "ok",
-            "data": decoded_property
-        }
-    else:
-        raise HTTPException(status_code=404, detail="Property not found")
 
-# Mettre à jour une propriété
-@entry_root.patch("/update/{_id}")
-def UpdateProperty(_id: str, doc: UpdatePropertyModel):
-    req = dict(doc.dict(exclude_unset=True))
-    result = property_collection.find_one_and_update(
-        {"_id": ObjectId(_id)},
-        {"$set": req}
-    )
-    if result:
-        return {
-            "status": "ok",
-            "message": "Property updated successfully"
-        }
-    else:
-        raise HTTPException(status_code=404, detail="Property not found")
+@property_router.get("/properties/{property_id}", response_model=dict)
+async def get_property(property_id: str):
+    property_ = property_collection.find_one({"_id": ObjectId(property_id)})
+    if not property_:
+        raise HTTPException(status_code=404, detail="Propriété introuvable")
+    return {"status": "ok", "data": decode_property(property_)}
 
-# Supprimer une propriété
-@entry_root.delete("/delete/{_id}")
-def DeleteProperty(_id: str):
-    result = property_collection.find_one_and_delete(
-        {"_id": ObjectId(_id)}
-    )
-    if result:
-        return {
-            "status": "ok",
-            "message": "Property deleted successfully"
-        }
-    else:
-        raise HTTPException(status_code=404, detail="Property not found")
+
+@property_router.patch("/properties/{property_id}", response_model=dict)
+async def update_property(
+    property_id: str,
+    property: UpdatePropertyModel,
+    current_user: dict = Depends(get_current_user)
+):
+    existing_property = property_collection.find_one({"_id": ObjectId(property_id)})
+
+    if not existing_property:
+        raise HTTPException(status_code=404, detail="Propriété introuvable")
+
+    # Only allow updates by the owner or an admin
+    if (
+        current_user["role"] != "admin"
+        and str(current_user["_id"]) != existing_property["proprietaire_id"]
+    ):
+        raise HTTPException(
+            status_code=403, detail="Accès interdit : Vous n'êtes pas le propriétaire"
+        )
+
+    update_data = property.dict(exclude_unset=True)
+    property_collection.update_one({"_id": ObjectId(property_id)}, {"$set": update_data})
+    return {"status": "ok", "message": "Propriété mise à jour avec succès"}
+
+
+@property_router.delete("/properties/{property_id}", response_model=dict)
+async def delete_property(
+    property_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    property_ = property_collection.find_one({"_id": ObjectId(property_id)})
+
+    if not property_:
+        raise HTTPException(status_code=404, detail="Propriété introuvable")
+
+    # Only allow deletion by the owner or an admin
+    if (
+        current_user["role"] != "admin"
+        and str(current_user["_id"]) != property_["proprietaire_id"]
+    ):
+        raise HTTPException(
+            status_code=403, detail="Accès interdit : Vous n'êtes pas le propriétaire"
+        )
+
+    property_collection.delete_one({"_id": ObjectId(property_id)})
+    return {"status": "ok", "message": "Propriété supprimée avec succès"}
+

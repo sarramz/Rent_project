@@ -1,8 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from bson import ObjectId
 from typing import Optional
-from pydantic.networks import EmailStr
 
 class Reservation(BaseModel):
     idApp: str  # Référence à Appartement par identifiant
@@ -12,7 +10,7 @@ class Reservation(BaseModel):
     statut: str
     date_res: datetime = Field(default_factory=datetime.utcnow)
 
-class UpdateReservationModel(BaseModel):
+class UpdateReservation(BaseModel):
     idApp: Optional[str]
     idU: Optional[str]
     date_debut: Optional[datetime]

@@ -1,22 +1,25 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import datetime  
 
 class Property(BaseModel):
-    prix: float
+    titre: str
     description: str
     adresse: str
-    ville: str
-    région: str
-    nbr_chambres: int
-    statut: str
+    prix: float
+    superficie: float
+    type_bien: str  # Type de bien : Appartement, Maison, etc.
+    disponibilite: bool = True
+    date_ajout: datetime = Field(default_factory=datetime.utcnow)  
     image: Optional[str] = None
+    propriétaire_id: str
 
 class UpdatePropertyModel(BaseModel):
-    prix: Optional[float]
+    titre: Optional[str]
     description: Optional[str]
     adresse: Optional[str]
-    ville: Optional[str]
-    région: Optional[str]
-    nbr_chambres: Optional[int]
-    statut: Optional[str]
-    image: Optional[str] = None
+    prix: Optional[float]
+    superficie: Optional[float]
+    type_bien: Optional[str]
+    disponibilite: Optional[bool]
+    image: Optional[str]
