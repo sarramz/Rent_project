@@ -1,7 +1,9 @@
+from bson import ObjectId
+
 def decode_user(user: dict) -> dict:
-    """Convertit un document utilisateur MongoDB en dictionnaire serializable"""
+    """Convertit un document utilisateur MongoDB en dictionnaire sérialisable."""
     return {
-        "id": str(user["_id"]),
+        "id": str(user["_id"]) if isinstance(user["_id"], ObjectId) else user["_id"],
         "nom": user.get("nom"),
         "prenom": user.get("prenom"),
         "date_naissance": user.get("date_naissance"),
@@ -15,5 +17,5 @@ def decode_user(user: dict) -> dict:
     }
 
 def decode_users(users: list) -> list:
-    """Convertit une liste de documents utilisateurs MongoDB en liste de dictionnaires serializables"""
+    """Convertit une liste de documents utilisateurs MongoDB en liste de dictionnaires sérialisables."""
     return [decode_user(user) for user in users]

@@ -1,13 +1,14 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from config.config import user_collection
 from bson import ObjectId
+from serializers.user_serializer import decode_user
 
 SECRET_KEY = "your_secret_key_here"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 50
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
@@ -16,7 +17,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
-        if not user_id:
+        if not user_id or not ObjectId.is_valid(user_id):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
@@ -27,11 +28,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
             )
-        return user
-    except jwt.JWTError:
+        return decode_user(user)
+    except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected error occurred while processing the token",
         )
 
 def is_admin(current_user: dict = Depends(get_current_user)):
