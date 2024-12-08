@@ -181,7 +181,7 @@ async def search_properties(
     prix_min: Optional[float] = None,
     prix_max: Optional[float] = None,
 ):
-    """Rechercher des propriétés selon des critères (ville, prix)."""
+    """Rechercher des propriétés selon des critères (ville, prix)"""
     query = {}
     if ville:
         query["ville"] = ville
