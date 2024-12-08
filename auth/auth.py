@@ -5,39 +5,51 @@ from datetime import datetime, timedelta
 from config.config import user_collection
 from bson import ObjectId
 from serializers.user_serializer import decode_user
+from typing import List
 
 SECRET_KEY = "your_secret_key_here"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 50
+ACCESS_TOKEN_EXPIRE_MINUTES = 95
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Obtenir l'utilisateur actuel à partir du token JWT."""
+    """Obtenir l'utilisateur actuel à partir du token JWT.
+    Décode le token, vérifie son authenticité et retourne les informations de l'utilisateur"""
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
+        
+         # Log pour déboguer le payload
+        print(f"Payload du token : {payload}")
+        
         if not user_id or not ObjectId.is_valid(user_id):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
+                detail="Identifiants d'authentification invalides",
             )
+            
         user = await user_collection.find_one({"_id": ObjectId(user_id)})
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
+                detail="Utilisateur introuvable",
             )
-        return decode_user(user)
+        
+        user_decoded = decode_user(user)
+        print(f"Utilisateur décodé : {user_decoded}")  # Log pour vérifier l'utilisateur décodé
+        return user_decoded   
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="Token invalide",
         )
     except Exception as e:
+        print(f"Erreur : {e}")  # Log pour afficher l'erreur
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unexpected error occurred while processing the token",
+            detail="Erreur inattendue lors du traitement du token",
         )
 
 def is_admin(current_user: dict = Depends(get_current_user)):
@@ -45,7 +57,7 @@ def is_admin(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions",
+            detail="Permissions insuffisantes",
         )
     return True
 
@@ -54,13 +66,41 @@ def is_proprietaire(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "proprietaire":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access restricted to proprietaires only",
+            detail="Accès réservé uniquement aux propriétaires",
         )
     return True
 
+def is_locataire(current_user: dict = Depends(get_current_user)):
+    """Vérifier si l'utilisateur a le rôle de locataire."""
+    if current_user.get("role") != "locataire":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé uniquement aux locataires"
+        )
+    return current_user
+
 def create_access_token(data: dict):
-    """Générer un token JWT pour l'accès."""
+    """Générer un token JWT pour un accès authentifié.
+    Ajoute une date d'expiration au token."""
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_roles(allowed_roles: List[str]):
+    """Vérifier si l'utilisateur a un rôle autorisé.
+    
+    Args:
+        allowed_roles (List[str]): Liste des rôles autorisés.
+        
+    Returns:
+        Fonction de dépendance pour FastAPI.
+    """
+    def role_verifier(current_user: dict = Depends(get_current_user)):
+        if current_user.get("role") not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Accès interdit : rôle insuffisant."
+            )
+        return current_user
+    return role_verifier

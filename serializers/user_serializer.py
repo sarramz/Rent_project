@@ -2,6 +2,7 @@ from bson import ObjectId
 
 def decode_user(user: dict) -> dict:
     """Convertit un document utilisateur MongoDB en dictionnaire sérialisable."""
+    print(f"Utilisateur décodé : {user}")
     return {
         "id": str(user["_id"]) if isinstance(user["_id"], ObjectId) else user["_id"],
         "nom": user.get("nom"),
