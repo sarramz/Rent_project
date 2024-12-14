@@ -1,6 +1,4 @@
 from bson import ObjectId
-
-# Un seul document
 def DecodeReservation(doc) -> dict:
     return {
         "_id": str(doc["_id"]),

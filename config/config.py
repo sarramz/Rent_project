@@ -5,7 +5,7 @@ import asyncio
 # MongoDB Connection URL
 MONGODB_URL = "mongodb+srv://sarra:sarra123@cluster0.19tqig2.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-# Create async MongoDB client
+# Création du client asynchrone MongoDB
 client = AsyncIOMotorClient(MONGODB_URL)
 db = client.rental_platform
 
@@ -22,20 +22,20 @@ async def connect_to_mongo():
     try:
         # Verify connection
         await client.admin.command('ping')
-        print("Successfully connected to MongoDB!")
+        print("Connexion à MongoDB réussie!")
     except Exception as e:
-        print(f"MongoDB Connection Error: {e}")
-        raise HTTPException(status_code=500, detail="Database connection error")
+        print(f"Erreur de connexion à MongoDB : {e}")
+        raise HTTPException(status_code=500, detail="Erreur de connexion à la base de données")
 
 async def close_mongo_connection():
     try:
         client.close()
-        print("MongoDB connection closed")
+        print("Connexion MongoDB fermée")
     except Exception as e:
-        print(f"Error closing MongoDB connection: {e}")
+        print(f"Erreur lors de la fermeture de la connexion MongoDB: {e}")
 
-# Verify collections
-async def verify_collections():
+
+# Vérification de l'existence des collectionsasync def verify_collections():
     try:
         collections = await db.list_collection_names()
         required_collections = ['users', 'properties', 'reservations', 'reclamations', 
@@ -43,13 +43,13 @@ async def verify_collections():
         
         for coll in required_collections:
             if coll not in collections:
-                print(f"Warning: Collection '{coll}' not found in database")
+                print(f"Avertissement : Collection '{coll}' introuvable dans la base de données")
                 
     except Exception as e:
-        print(f"Error verifying collections: {e}")
+        print(f"Erreur lors de la vérification des collections : {e}")
         raise HTTPException(status_code=500, detail="Error verifying database collections")
 
-# Initialize connection and verify collections on startup
+# Initialisation de la connexion et vérification des collections lors du démarrage
 async def initialize_database():
     await connect_to_mongo()
     await verify_collections()

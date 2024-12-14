@@ -27,7 +27,7 @@ class User(BaseModel):
     password: str
     etat: UserStatus = UserStatus.ACTIVE
     image: Optional[str] = None
-    role: UserRole = UserRole.VISITEUR
+    roles: list[UserRole] = [UserRole.VISITEUR]
 
 
 class UserUpdate(BaseModel):
@@ -41,7 +41,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     etat: Optional[UserStatus] = None
     image: Optional[str] = None
-    role: Optional[UserRole] = None
+    roles: Optional[list[UserRole]] = None
 
 
 class UserLogin(BaseModel):

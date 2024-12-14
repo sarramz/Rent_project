@@ -14,7 +14,7 @@ def decode_user(user: dict) -> dict:
         "username": user.get("username"),
         "etat": user.get("etat"),
         "image": user.get("image"),
-        "role": user.get("role"),
+        "roles": user.get("roles", []),
     }
 
 def decode_users(users: list) -> list:

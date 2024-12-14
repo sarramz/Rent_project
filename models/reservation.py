@@ -1,19 +1,26 @@
 from pydantic import BaseModel, Field
-from datetime import datetime
 from typing import Optional
+from datetime import datetime
+from enum import Enum
+
+
+class ReservationStatus(str, Enum):
+    EN_ATTENTE = "En attente"
+    CONFIRMÉE = "Confirmée"
+    ANNULÉE = "Annulée"
 
 class Reservation(BaseModel):
-    idApp: str  # Référence à Appartement par identifiant
-    idU: str  # Référence à Utilisateur par identifiant
-    date_debut: datetime
-    date_fin: datetime
-    statut: str
-    date_res: datetime = Field(default_factory=datetime.utcnow)
+    idApp: str  
+    idU: str  
+    date_debut: datetime 
+    date_fin: datetime  
+    statut: ReservationStatus = ReservationStatus.EN_ATTENTE  
+    date_res: datetime = Field(default_factory=datetime.utcnow) 
 
 class UpdateReservation(BaseModel):
     idApp: Optional[str]
-    idU: Optional[str]
+    idU: Optional[str]  
     date_debut: Optional[datetime]
     date_fin: Optional[datetime]
-    statut: Optional[str]
+    statut: Optional[ReservationStatus]
     date_res: Optional[datetime]

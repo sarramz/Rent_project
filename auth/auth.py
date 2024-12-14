@@ -22,7 +22,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         user_id: str = payload.get("sub")
         
          # Log pour déboguer le payload
-        print(f"Payload du token : {payload}")
+        #print(f"Payload du token : {payload}")
         
         if not user_id or not ObjectId.is_valid(user_id):
             raise HTTPException(
@@ -38,7 +38,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             )
         
         user_decoded = decode_user(user)
-        print(f"Utilisateur décodé : {user_decoded}")  # Log pour vérifier l'utilisateur décodé
+        #print(f"Utilisateur décodé : {user_decoded}")  # Log pour vérifier l'utilisateur décodé
         return user_decoded   
     except JWTError:
         raise HTTPException(
@@ -46,15 +46,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             detail="Token invalide",
         )
     except Exception as e:
-        print(f"Erreur : {e}")  # Log pour afficher l'erreur
+        #print(f"Erreur : {e}")  # Log pour afficher l'erreur
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erreur inattendue lors du traitement du token",
         )
-
 def is_admin(current_user: dict = Depends(get_current_user)):
-    """Vérifier si l'utilisateur a le rôle d'administrateur."""
-    if current_user.get("role") != "admin":
+    """Vérifier si l'utilisateur est administrateur."""
+    if "admin" not in current_user.get("roles", []):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Permissions insuffisantes",
@@ -63,7 +62,7 @@ def is_admin(current_user: dict = Depends(get_current_user)):
 
 def is_proprietaire(current_user: dict = Depends(get_current_user)):
     """Vérifier si l'utilisateur a le rôle de propriétaire."""
-    if current_user.get("role") != "proprietaire":
+    if "proprietaire" not in current_user.get("roles", []):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accès réservé uniquement aux propriétaires",
@@ -72,13 +71,12 @@ def is_proprietaire(current_user: dict = Depends(get_current_user)):
 
 def is_locataire(current_user: dict = Depends(get_current_user)):
     """Vérifier si l'utilisateur a le rôle de locataire."""
-    if current_user.get("role") != "locataire":
+    if "locataire" not in current_user.get("roles", []):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès réservé uniquement aux locataires"
+            detail="Accès réservé uniquement aux locataires",
         )
     return current_user
-
 def create_access_token(data: dict):
     """Générer un token JWT pour un accès authentifié.
     Ajoute une date d'expiration au token."""
@@ -88,16 +86,9 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def verify_roles(allowed_roles: List[str]):
-    """Vérifier si l'utilisateur a un rôle autorisé.
-    
-    Args:
-        allowed_roles (List[str]): Liste des rôles autorisés.
-        
-    Returns:
-        Fonction de dépendance pour FastAPI.
-    """
+    """Vérifier si l'utilisateur a un rôle autorisé."""
     def role_verifier(current_user: dict = Depends(get_current_user)):
-        if current_user.get("role") not in allowed_roles:
+        if not any(role in current_user.get("roles", []) for role in allowed_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Accès interdit : rôle insuffisant."

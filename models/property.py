@@ -11,11 +11,10 @@ class Property(BaseModel):
     prix: float
     superficie: float
     nbr_chambres: int
-    statut: str  # Statut (ex: "disponible", "réservé")
-    disponibilite: bool = True
+    statut: str  # Exp: "disponible", "réservé", "loué", "indisponible"
     date_ajout: datetime = Field(default_factory=datetime.utcnow)
     image: Optional[str] = None
-    proprietaire_id: Optional[str] = None# Corrigé pour unifier
+    proprietaire_id: Optional[str] = None
 
 class UpdatePropertyModel(BaseModel):
     titre: Optional[str]
@@ -27,5 +26,4 @@ class UpdatePropertyModel(BaseModel):
     superficie: Optional[float]
     nbr_chambres: Optional[int]
     statut: Optional[str]
-    disponibilite: Optional[bool]
     image: Optional[str]

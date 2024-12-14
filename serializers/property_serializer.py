@@ -1,3 +1,5 @@
+from bson import ObjectId
+
 def decode_property(property: dict) -> dict:
     """Convertir un document MongoDB en dictionnaire sérialisable."""
     return {
@@ -10,8 +12,7 @@ def decode_property(property: dict) -> dict:
         "prix": property.get("prix", 0.0),
         "superficie": property.get("superficie", 0.0),
         "nbr_chambres": property.get("nbr_chambres", 0),
-        "statut": property.get("statut", "disponible"),
-        "disponibilite": property.get("disponibilite", True),
+        "statut": property.get("statut", "disponible"),  # Statut par défaut
         "date_ajout": property.get("date_ajout", "").isoformat() if "date_ajout" in property else None,
         "image": property.get("image", None),
         "proprietaire_id": property.get("proprietaire_id", ""),
