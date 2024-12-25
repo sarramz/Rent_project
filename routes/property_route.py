@@ -6,7 +6,6 @@ from models.property import Property, UpdatePropertyModel
 from serializers.property_serializer import decode_property, decode_properties
 from config.config import property_collection, user_collection
 from auth.auth import is_admin, get_current_user,is_proprietaire
-
 property_router = APIRouter()
 
 # Créer une propriété
@@ -57,6 +56,7 @@ async def create_property(
 
 
 
+
 # Récupérer toutes les propriétés
 @property_router.get("/all", response_model=dict)
 async def get_all_properties(
@@ -81,6 +81,7 @@ async def get_all_properties(
     serialized_properties = decode_properties(properties)
 
     return {"status": "ok", "data": serialized_properties}
+
 
 # Récupérer une propriété par son ID
 @property_router.get("/get/{property_id}", response_model=dict)
@@ -162,9 +163,7 @@ async def update_property(
 
     update_data = property.dict(exclude_unset=True)
     await property_collection.update_one({"_id": object_id}, {"$set": update_data})
-    return {"status": "ok", "message": "Propriété mise à jour avec succès."}
-
-    
+    return {"status": "ok", "message": "Propriété mise à jour avec succès."} 
     
     
 # Supprimer une propriété
@@ -215,7 +214,6 @@ async def delete_property(
 
     return {"status": "ok", "message": "Propriété supprimée avec succès."}
 
-
 # Recherche des propriétés
 @property_router.get("/search", response_model=dict)
 async def search_properties(
@@ -251,4 +249,3 @@ async def search_properties(
     properties = await properties_cursor.to_list(length=None)
 
     return {"status": "ok", "data": decode_properties(properties)}
-

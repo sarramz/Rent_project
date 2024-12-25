@@ -1,130 +1,231 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from models.reservation import Reservation, UpdateReservation
-from config.config import reservation_collection, property_collection, user_collection
-from serializers.reservation_serializer import DecodeReservation
-from bson import ObjectId
-from auth.auth import get_current_user
+from config.config import reservation_collection, property_collection
+from serializers.reservation_serializer import DecodeReservation, DecodeReservations
+from bson import ObjectId, errors
+from auth.auth import get_current_user, is_locataire
 from datetime import datetime
+import logging
 
+# Initialisation du routeur
 reservation_router = APIRouter()
 
-@reservation_router.post("/add", response_model=dict)
+# Activation logs
+#logging.basicConfig(level=logging.DEBUG)
+
+@reservation_router.post("/add/{property_id}", response_model=dict)
 async def create_reservation(
-    new_reservation: Reservation, current_user: dict = Depends(get_current_user)
+    new_reservation: Reservation,
+    property_id: str,
+    current_user: dict = Depends(is_locataire)
 ):
-    """
-    Créer une nouvelle réservation.
-    Accessible uniquement pour les locataires.
-    Vérifie l'existence de la propriété et la disponibilité pour les dates choisies.
-    """
-    # Vérification du rôle de l'utilisateur
-    if current_user.get("role") != "locataire":
-        raise HTTPException(
-            status_code=403, detail="Seuls les locataires peuvent créer des réservations."
-        )
-
-    # Vérification de l'existence de la propriété
-    property_exists = await property_collection.find_one({"_id": ObjectId(new_reservation.idApp)})
-    if not property_exists:
-        raise HTTPException(status_code=404, detail="Propriété introuvable.")
-
-    # Validation des dates
+    try:
+        #print(property_id)
+        property_id = ObjectId(property_id)
+    except errors.InvalidId:
+        #logging.error(f"ID de propriété invalide: {property_id}")
+        raise HTTPException(status_code=400, detail="ID propriété invalide.")
+    
     if new_reservation.date_debut >= new_reservation.date_fin:
-        raise HTTPException(
-            status_code=400, detail="La date de début doit être antérieure à la date de fin."
-        )
+        #logging.error(f"Date de début après date de fin: {new_reservation.date_debut} >= {new_reservation.date_fin}")
+        raise HTTPException(status_code=400, detail="La date de début doit être avant la date de fin.")
+    
+    try:
+        property_ = await property_collection.find_one({"_id": property_id})
+        if not property_:
+            #logging.error(f"Propriété non trouvée pour l'ID: {property_id}")
+            raise HTTPException(status_code=404, detail="Propriété non trouvée.")
+        if property_.get("statut") != "disponible":
+            #logging.error(f"Propriété avec ID {property_id} non disponible à la réservation.")
+            raise HTTPException(status_code=400, detail="Propriété non disponible à la réservation.")
+    except Exception as e:
+        #logging.error(f"Erreur lors de la récupération de la propriété: {e}")
+        print(e)
+        raise HTTPException(status_code=500, detail="Erreur interne du serveur.")
+    
+    reservation_data = new_reservation.dict()
+    reservation_data.update({
+        "idApp": str(property_id),  
+        "idU": str(current_user["id"]),
+        "statut": "En attente", 
+        "date_res": datetime.utcnow(),  
+    })
+    
+    try:
+        result = await reservation_collection.insert_one(reservation_data)
+        #logging.info(f"Réservation ajoutée avec succès avec l'ID: {result.inserted_id}")
+        await property_collection.update_one({"_id": property_id}, {"$set": {"statut": "indisponible"}})
+    except Exception as e:
+        #logging.error(f"Erreur lors de l'insertion de la réservation: {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors de l'insertion de la réservation.")
+    
+    reservation = await reservation_collection.find_one({"_id": result.inserted_id})
+    return {
+        "status": "success",
+        "data": DecodeReservation(reservation)
+    }
 
-    # Vérification de la disponibilité
-    overlapping_reservations = await reservation_collection.find_one(
-        {
-            "idApp": new_reservation.idApp,
-            "$or": [
-                {"date_debut": {"$lt": new_reservation.date_fin, "$gte": new_reservation.date_debut}},
-                {"date_fin": {"$lte": new_reservation.date_fin, "$gt": new_reservation.date_debut}},
-            ],
-        }
-    )
-    if overlapping_reservations:
-        raise HTTPException(
-            status_code=400, detail="La propriété n'est pas disponible pour les dates sélectionnées."
-        )
-
-    # Création de la réservation
-    reservation_dict = new_reservation.dict()
-    reservation_dict["idU"] = str(current_user["_id"])
-    result = await reservation_collection.insert_one(reservation_dict)
-
-    new_reservation_data = await reservation_collection.find_one({"_id": result.inserted_id})
-    return {"status": "success", "data": DecodeReservation(new_reservation_data)}
-
-
-@reservation_router.get("/{reservation_id}", response_model=dict)
-async def get_reservation(reservation_id: str, current_user: dict = Depends(get_current_user)):
+@reservation_router.get("/all", response_model=dict)
+async def get_all_reservations(current_user: dict = Depends(get_current_user)):
     """
-    Récupérer une réservation spécifique.
-    Accessible au locataire ou au propriétaire lié à la réservation.
+    Récupérer toutes les réservations selon le rôle de l'utilisateur.
     """
-    reservation = await reservation_collection.find_one({"_id": ObjectId(reservation_id)})
+    roles = current_user.get("roles", [])
+    user_id = str(current_user["id"])  # ID utilisateur (locataire/propriétaire/admin)
+    reservations = []
+
+    if "admin" in roles:
+        reservations_cursor = reservation_collection.find()
+        reservations = await reservations_cursor.to_list(None)
+
+    if "proprietaire" in roles:
+        properties = await property_collection.find({"proprietaire_id": user_id}).to_list(None)
+        property_ids = [str(p["_id"]) for p in properties]
+        owner_reservations_cursor = reservation_collection.find({"idApp": {"$in": property_ids}})
+        owner_reservations = await owner_reservations_cursor.to_list(None)
+        reservations.extend(owner_reservations)
+
+    if "locataire" in roles:
+        renter_reservations_cursor = reservation_collection.find({"idU": user_id})
+        renter_reservations = await renter_reservations_cursor.to_list(None)
+        reservations.extend(renter_reservations)
+
+    unique_reservations = {str(res["_id"]): res for res in reservations}.values()
+
+    if not unique_reservations:
+        return {"status": "success", "message": "Aucune réservation trouvée."}
+
+    return {
+        "status": "success",
+        "data": DecodeReservations(list(unique_reservations)),
+    }
+
+
+
+@reservation_router.get("/get/{reservation_id}", response_model=dict)
+async def get_reservation(
+    reservation_id: str, 
+    current_user: dict = Depends(get_current_user)):
+    """
+    Récupérer une réservation spécifique en fonction des rôles.
+    """
+    try:
+        reservation_id = ObjectId(reservation_id)
+    except errors.InvalidId:
+        raise HTTPException(status_code=400, detail="ID de réservation invalide.")
+
+    reservation = await reservation_collection.find_one({"_id": reservation_id})
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation introuvable.")
 
-    # Vérification des permissions
-    is_owner = reservation["idU"] == str(current_user["_id"])
-    is_property_owner = await property_collection.find_one(
-        {"_id": ObjectId(reservation["idApp"]), "proprietaire_id": str(current_user["_id"])}
-    )
-    if not (is_owner or is_property_owner or current_user.get("role") == "admin"):
-        raise HTTPException(
-            status_code=403,
-            detail="Vous n'êtes pas autorisé à consulter cette réservation.",
+    user_id = str(current_user["id"])
+    roles = current_user.get("roles", [])
+
+    if "admin" in roles:
+        pass
+    elif "locataire" in roles and reservation["idU"] == user_id:
+        pass
+    elif "proprietaire" in roles:
+        property_ = await property_collection.find_one(
+            {"_id": ObjectId(reservation["idApp"]), "proprietaire_id": user_id}
         )
+        if not property_:
+            raise HTTPException(status_code=403, detail="Accès refusé, propriétaire non autorisé.")
+    else:
+        raise HTTPException(status_code=403, detail="Accès refusé, rôle non autorisé.")
 
     return {"status": "success", "data": DecodeReservation(reservation)}
 
 
-@reservation_router.put("/{reservation_id}", response_model=dict)
-async def update_reservation(
-    reservation_id: str,
-    update_data: UpdateReservation,
-    current_user: dict = Depends(get_current_user),
+
+@reservation_router.patch("/{reservation_id}/status", response_model=dict)
+async def update_reservation_status(
+    reservation_id: str,  
+    body: UpdateReservation, 
+    current_user: dict = Depends(get_current_user)
 ):
     """
-    Mettre à jour une réservation existante.
-    Accessible au locataire ou à l'administrateur.
+    Mettre à jour le statut d'une réservation. Seul le propriétaire de l'appartement lié peut le faire.
     """
-    reservation = await reservation_collection.find_one({"_id": ObjectId(reservation_id)})
+    try:
+        reservation_id = ObjectId(reservation_id)
+    except errors.InvalidId:
+        raise HTTPException(400, "ID de réservation invalide.")
+
+    reservation = await reservation_collection.find_one({"_id": reservation_id})
     if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation introuvable.")
+        raise HTTPException(404, "Réservation introuvable.")
 
-    # Vérification des permissions
-    if reservation["idU"] != str(current_user["_id"]) and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès interdit à cette réservation.")
+    appartement = await property_collection.find_one({"_id": ObjectId(reservation["idApp"])})
 
-    # Mise à jour des champs
-    update_fields = update_data.dict(exclude_unset=True)
+    if not appartement:
+        raise HTTPException(404, "Appartement introuvable.")
+
+    if str(appartement["proprietaire_id"]) != str(current_user["id"]):
+        raise HTTPException(403, "Seul le propriétaire peut modifier le statut de cette réservation.")
+
+    if not body.new_status:
+        raise HTTPException(400, "Le champ 'new_status' est requis.")
+    
     await reservation_collection.update_one(
-        {"_id": ObjectId(reservation_id)}, {"$set": update_fields}
+        {"_id": reservation_id},
+        {"$set": {"statut": body.new_status.value, "updated_at": datetime.utcnow()}}
     )
 
-    updated_reservation = await reservation_collection.find_one({"_id": ObjectId(reservation_id)})
-    return {"status": "success", "data": DecodeReservation(updated_reservation)}
+    updated_reservation = await reservation_collection.find_one({"_id": reservation_id})
 
+    return {
+        "status": "success",
+        "message": "Statut de réservation mis à jour.",
+        "data": {
+            "id": str(updated_reservation["_id"]),
+            "idApp": updated_reservation["idApp"],
+            "statut": updated_reservation["statut"],
+            "updated_at": updated_reservation["updated_at"]
+        }
+    }
 
 @reservation_router.delete("/{reservation_id}", response_model=dict)
-async def delete_reservation(reservation_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_reservation(
+    reservation_id: str,
+    current_user: dict = Depends(get_current_user) 
+):
     """
     Supprimer une réservation existante.
-    Accessible au locataire ou à l'administrateur.
+    Seuls l'administrateur ou l'utilisateur ayant fait la réservation peuvent la supprimer.
     """
-    reservation = await reservation_collection.find_one({"_id": ObjectId(reservation_id)})
+ 
+    try:
+        reservation_id = ObjectId(reservation_id)
+    except errors.InvalidId:
+        raise HTTPException(status_code=400, detail="ID de réservation invalide.")
+
+  
+    reservation = await reservation_collection.find_one({"_id": reservation_id})
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation introuvable.")
 
-    # Vérification des permissions
-    if reservation["idU"] != str(current_user["_id"]) and current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès interdit à cette réservation.")
+    if (
+        "admin" not in current_user.get("roles", [])  # Si l'utilisateur n'est pas admin
+        and str(reservation["idU"]) != str(current_user["id"])  # Et qu'il n'est pas celui qui a fait la réservation
+    ):
+        raise HTTPException(
+            status_code=403, detail="Accès interdit : vous ne pouvez pas supprimer cette réservation."
+        )
 
-    # Suppression
-    await reservation_collection.delete_one({"_id": ObjectId(reservation_id)})
+    # Supprimer la réservation
+    await reservation_collection.delete_one({"_id": reservation_id})
 
-    return {"status": "success", "message": "Réservation supprimée avec succès."}
+    # Mettre à jour l'état de la propriété associée (si applicable)
+    if "idApp" in reservation:
+        await property_collection.update_one(
+            {"_id": ObjectId(reservation["idApp"])},
+            {"$set": {"statut": "disponible"}}
+        )
+
+    # Retourner une réponse réussie
+    return {
+        "status": "success",
+        "message": "Réservation supprimée avec succès."
+    }
+

@@ -127,8 +127,8 @@ async def delete_user(user_id: str):
         )
     return {"message": "Utilisateur supprimé avec succès"}
 
-@router.delete("/{user_id}", dependencies=[Depends(is_admin)], response_model=dict)
-async def delete_user(user_id: str):
+# @router.delete("/{user_id}", dependencies=[Depends(is_admin)], response_model=dict)
+# async def delete_user(user_id: str):
     """
     Permet à un administrateur de supprimer un utilisateur.
     """

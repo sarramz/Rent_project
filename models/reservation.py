@@ -10,17 +10,10 @@ class ReservationStatus(str, Enum):
     ANNULÉE = "Annulée"
 
 class Reservation(BaseModel):
-    idApp: str  
-    idU: str  
-    date_debut: datetime 
-    date_fin: datetime  
-    statut: ReservationStatus = ReservationStatus.EN_ATTENTE  
-    date_res: datetime = Field(default_factory=datetime.utcnow) 
+    date_debut: datetime = Field(..., description="Date de début")
+    date_fin: datetime = Field(..., description="Date de fin")
+    statut: str = Field(default="En attente", description="Statut de la réservation")
+    date_res: datetime = Field(default=None, description="Date de réservation")
 
 class UpdateReservation(BaseModel):
-    idApp: Optional[str]
-    idU: Optional[str]  
-    date_debut: Optional[datetime]
-    date_fin: Optional[datetime]
-    statut: Optional[ReservationStatus]
-    date_res: Optional[datetime]
+    new_status: Optional[ReservationStatus]

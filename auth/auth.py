@@ -9,7 +9,7 @@ from typing import List
 
 SECRET_KEY = "your_secret_key_here"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 95
+ACCESS_TOKEN_EXPIRE_MINUTES = 720
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 

@@ -1,15 +1,16 @@
+from datetime import datetime
 from bson import ObjectId
-def DecodeReservation(doc) -> dict:
+
+def DecodeReservation(reservation: dict) -> dict:
     return {
-        "_id": str(doc["_id"]),
-        "idApp": str(doc["idApp"]),
-        "idU": str(doc["idU"]),
-        "date_debut": doc.get("date_debut"),
-        "date_fin": doc.get("date_fin"),
-        "statut": doc.get("statut"),
-        "date_res": doc.get("date_res"),
+        "id": str(reservation["_id"]) if isinstance(reservation["_id"], ObjectId) else reservation["_id"],
+        "idApp": reservation.get("idApp"),  # ID de la propriété
+        "idU": reservation.get("idU"),  # ID de l'utilisateur
+        "date_debut": reservation.get("date_debut").isoformat() if isinstance(reservation.get("date_debut"), datetime) else reservation.get("date_debut"),
+        "date_fin": reservation.get("date_fin").isoformat() if isinstance(reservation.get("date_fin"), datetime) else reservation.get("date_fin"),
+        "statut": reservation.get("statut", "En attente"),  # Valeur par défaut
+        "date_res": reservation.get("date_res").isoformat() if isinstance(reservation.get("date_res"), datetime) else reservation.get("date_res", datetime.utcnow().isoformat()),
     }
 
-# Plusieurs documents
-def DecodeReservations(docs) -> list:
-    return [DecodeReservation(doc) for doc in docs]
+def DecodeReservations(reservations: list) -> list:
+    return [DecodeReservation(reservation) for reservation in reservations]
