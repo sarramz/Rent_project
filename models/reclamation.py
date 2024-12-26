@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional
 
 class Reclamation(BaseModel):
-    utilisateur_id: str
     contenu: str
-    date: datetime = Field(default_factory=datetime.utcnow)
-    statut: str = "En cours"
+    date: datetime = Field(default_factory=datetime.utcnow)  
+    statut: Optional[str] = "En cours"
 
 class UpdateReclamationModel(BaseModel):
     statut: str
