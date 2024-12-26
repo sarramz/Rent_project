@@ -128,7 +128,6 @@ async def get_property(
 
 
 
-# Mettre à jour une propriété
 @property_router.patch("/update/{property_id}", response_model=dict)
 async def update_property(
     property_id: str,
