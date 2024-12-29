@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status,WebSocket
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
@@ -11,12 +11,14 @@ import logging
 SECRET_KEY = "your_secret_key_here"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 720
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
+
 logger = logging.getLogger("auth")
+
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Obtenir l'utilisateur actuel à partir du token JWT.
-    Décode le token, vérifie son authenticité et retourne les informations de l'utilisateur"""
+    """
+    Obtenir l'utilisateur actuel à partir du token JWT.
+    Décode le token, vérifie son authenticité et retourne les informations de l'utilisateur """
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -55,14 +57,32 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Erreur inattendue lors du traitement du token",
         )
-def is_admin(current_user: dict = Depends(get_current_user)):
-    """Vérifier si l'utilisateur est administrateur."""
-    if "admin" not in current_user.get("roles", []):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permissions insuffisantes",
-        )
-    return True
+async def get_current_user_from_ws(websocket: WebSocket):
+    """
+    Récupérer l'utilisateur connecté depuis le WebSocket grâce au token JWT.
+    """
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008)
+        raise HTTPException(status_code=403, detail="Token manquant")
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None or not ObjectId.is_valid(user_id):
+            await websocket.close(code=1008)
+            raise HTTPException(status_code=403, detail="Token invalide")
+
+        user = await user_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            await websocket.close(code=1008)
+            raise HTTPException(status_code=403, detail="Utilisateur introuvable")
+        
+        return {"id": str(user["_id"])}
+    except JWTError:
+        await websocket.close(code=1008)
+        raise HTTPException(status_code=403, detail="Token invalide")
+
 
 def is_proprietaire(current_user: dict = Depends(get_current_user)):
     """Vérifier si l'utilisateur a le rôle de propriétaire."""
@@ -81,6 +101,18 @@ def is_locataire(current_user: dict = Depends(get_current_user)):
             detail="Accès réservé uniquement aux locataires",
         )
     return current_user
+
+def is_admin(current_user: dict = Depends(get_current_user)):
+    """
+    Vérifier si l'utilisateur a le rôle d'administrateur.
+    """
+    if "admin" not in current_user.get("roles", []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès interdit. Vous n'êtes pas administrateur.",
+        )
+    return True
+
 def create_access_token(data: dict):
     """Générer un token JWT pour un accès authentifié.
     Ajoute une date d'expiration au token."""

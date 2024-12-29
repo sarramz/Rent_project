@@ -1,11 +1,8 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-
+from typing import Optional
 class Notification(BaseModel):
-    utilisateur_id: str
     contenu: str
     date: datetime = Field(default_factory=datetime.utcnow)
-    lue: bool = False
+    utilisateur_id: Optional[str] = None
 
-class UpdateNotificationModel(BaseModel):
-    lue: bool
