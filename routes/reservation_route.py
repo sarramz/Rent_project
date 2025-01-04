@@ -6,7 +6,7 @@ from bson import ObjectId, errors
 from auth.auth import get_current_user, is_locataire
 from datetime import datetime
 import logging
-
+from typing import List
 # Initialisation du routeur
 reservation_router = APIRouter()
 
@@ -213,10 +213,10 @@ async def delete_reservation(
             status_code=403, detail="Accès interdit : vous ne pouvez pas supprimer cette réservation."
         )
 
-    # Supprimer la réservation
+   
     await reservation_collection.delete_one({"_id": reservation_id})
 
-    # Mettre à jour l'état de la propriété associée (si applicable)
+  
     if "idApp" in reservation:
         await property_collection.update_one(
             {"_id": ObjectId(reservation["idApp"])},
@@ -229,3 +229,34 @@ async def delete_reservation(
         "message": "Réservation supprimée avec succès."
     }
 
+
+@reservation_router.get("/my-reservations", response_model=dict)
+async def get_user_reservations(current_user: dict = Depends(is_locataire)):
+    """
+    Récupérer toutes les réservations effectuées par l'utilisateur connecté.
+    """
+    user_id = str(current_user["id"])  # ID de l'utilisateur connecté
+    
+    try:
+       
+        reservations_cursor = reservation_collection.find({"idU": user_id})
+        reservations = await reservations_cursor.to_list(None)
+        
+        if not reservations:
+            return {
+                "status": "success",
+                "message": "Aucune réservation trouvée pour cet utilisateur.",
+                "data": []
+            }
+        
+       
+        return {
+            "status": "success",
+            "data": DecodeReservations(reservations)
+        }
+    except Exception as e:
+        logging.error(f"Erreur lors de la récupération des réservations pour l'utilisateur {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur interne du serveur lors de la récupération des réservations."
+        )

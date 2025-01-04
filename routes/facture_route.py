@@ -92,3 +92,72 @@ async def get_locataire_factures(locataire_id: str):
             "status": "error",
             "message": "Une erreur est survenue lors de la récupération des factures"
         }
+
+@facture_router.get("/download/{facture_id}", response_description="Télécharger une facture")
+async def download_facture(
+    facture_id: str, 
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Télécharger une facture en format PDF.
+    
+    Args:
+        facture_id (str): ID de la facture à télécharger.
+        current_user (dict): Utilisateur actuellement authentifié.
+
+    Returns:
+        StreamingResponse: Le fichier PDF de la facture.
+    """
+    if not ObjectId.is_valid(facture_id):
+        raise HTTPException(status_code=400, detail="ID de facture invalide.")
+    
+    facture = await facture_collection.find_one({"_id": ObjectId(facture_id)})
+    if not facture:
+        raise HTTPException(status_code=404, detail="Facture non trouvée.")
+    
+    is_locataire = str(facture.get("locataire_id")) == str(current_user["id"])
+    is_admin_user = "admin" in current_user.get("roles", [])
+    if not (is_locataire or is_admin_user):
+        raise HTTPException(status_code=403, detail="Accès refusé.")
+    
+    pdf_stream = generate_facture_pdf(facture)
+
+    return StreamingResponse(
+        pdf_stream,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=facture_{facture_id}.pdf"
+        },
+    )
+
+@facture_router.get("/all", response_description="Récupérer toutes les factures", response_model=dict)
+async def get_all_factures():
+    """
+    Récupérer toutes les factures disponibles.
+
+    Returns:
+        dict: Liste de toutes les factures.
+    """
+    try:
+        cursor = facture_collection.find()
+        factures = await cursor.to_list(length=None)
+
+        if not factures:
+            return {
+                "status": "success",
+                "data": []
+            }
+
+        factures_list = DecodeFactures(factures)
+
+        return {
+            "status": "success",
+            "data": factures_list
+        }
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération des factures : {str(e)}")
+        return {
+            "status": "error",
+            "message": "Une erreur est survenue lors de la récupération des factures."
+        }

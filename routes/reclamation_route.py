@@ -23,15 +23,15 @@ async def create_reclamation(
             detail="Seuls les locataires ou propriétaires peuvent créer une réclamation."
         )
 
-    # Préparation des données de la réclamation
+   
     reclamation_data = {
-        "utilisateur_id": str(current_user["id"]),  # ID de l'utilisateur connecté
+        "utilisateur_id": str(current_user["id"]),
         "contenu": reclamation.contenu,
-        "date": datetime.utcnow(),  # Date automatique
-        "statut": "En cours",       # Statut par défaut
+        "date": datetime.utcnow(),  
+        "statut": "En cours",     
     }
 
-    # Insertion dans la base de données
+    
     result = await reclamation_collection.insert_one(reclamation_data)
 
     return {

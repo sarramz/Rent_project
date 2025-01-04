@@ -43,34 +43,34 @@ async def create_comment(
     return {"status": "ok", "message": "Commentaire créé avec succès", "_id": comment_id}
 
 
-@comment_router.get("/all/{appartement_id}", response_model=dict)
-async def get_all_comments_for_appartement(
-    appartement_id: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Récupérer tous les commentaires d'un appartement.
+# @comment_router.get("/all/{appartement_id}", response_model=dict)
+# async def get_all_comments_for_appartement(
+#     appartement_id: str,
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     """
+#     Récupérer tous les commentaires d'un appartement.
 
-    Args:
-        appartement_id (str): ID de l'appartement.
-        current_user (dict): Utilisateur connecté (via le token).
+#     Args:
+#         appartement_id (str): ID de l'appartement.
+#         current_user (dict): Utilisateur connecté (via le token).
 
-    Returns:
-        dict: Liste des commentaires de l'appartement.
-    """
-    try:
-        appartement_id = ObjectId(appartement_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="ID de l'appartement invalide.")
+#     Returns:
+#         dict: Liste des commentaires de l'appartement.
+#     """
+#     try:
+#         appartement_id = ObjectId(appartement_id)
+#     except Exception:
+#         raise HTTPException(status_code=400, detail="ID de l'appartement invalide.")
 
-    appartement = await property_collection.find_one({"_id": appartement_id})
-    if not appartement:
-        raise HTTPException(status_code=404, detail="Appartement non trouvé.")
+#     appartement = await property_collection.find_one({"_id": appartement_id})
+#     if not appartement:
+#         raise HTTPException(status_code=404, detail="Appartement non trouvé.")
 
-    comments_cursor = comment_collection.find({"appartement_id": str(appartement_id)})
-    comments = await comments_cursor.to_list(length=None)
+#     comments_cursor = comment_collection.find({"appartement_id": str(appartement_id)})
+#     comments = await comments_cursor.to_list(length=None)
 
-    return {"status": "ok", "data": DecodeComments(comments)}
+#     return {"status": "ok", "data": DecodeComments(comments)}
 
 @comment_router.patch("/update/{comment_id}", response_model=dict)
 async def update_comment(
@@ -89,7 +89,6 @@ async def update_comment(
             detail="Format d'identifiant de commentaire invalide"
         )
 
-    # Rechercher le commentaire existant
     existing_comment = await comment_collection.find_one({"_id": comment_id})
     if not existing_comment:
         raise HTTPException(
@@ -97,14 +96,12 @@ async def update_comment(
             detail="Commentaire non trouvé"
         )
 
-    # Vérifier que l'utilisateur connecté est le créateur du commentaire
     if str(existing_comment["utilisateur_id"]) != str(current_user["id"]):
         raise HTTPException(
             status_code=403, 
             detail="Accès refusé : vous ne pouvez modifier que vos propres commentaires"
         )
 
-    # Construire les données pour la mise à jour
     update_data = comment.dict(exclude_unset=True)
     if not update_data:
         raise HTTPException(
@@ -112,11 +109,9 @@ async def update_comment(
             detail="Aucune donnée valide pour la mise à jour"
         )
 
-    # Mettre à jour le champ "date" si nécessaire
     if "date" not in update_data:
         update_data["date"] = datetime.utcnow()
 
-    # Effectuer la mise à jour
     updated_comment = await comment_collection.find_one_and_update(
         {"_id": comment_id},
         {"$set": update_data},
@@ -171,3 +166,44 @@ async def delete_comment(
         return {"status": "success", "message": "Commentaire supprimé avec succès."}
 
     raise HTTPException(status_code=500, detail="Erreur lors de la suppression du commentaire.")
+
+@comment_router.get("/all/{appartement_id}", response_model=dict)
+async def get_all_comments_for_appartement(appartement_id: str):
+    """
+    Récupérer tous les commentaires d'un appartement.
+
+    Args:
+        appartement_id (str): ID de l'appartement.
+
+    Returns:
+        dict: Liste des commentaires de l'appartement.
+    """
+    try:
+        appartement_id = ObjectId(appartement_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="ID de l'appartement invalide.")
+
+    appartement = await property_collection.find_one({"_id": appartement_id})
+    if not appartement:
+        raise HTTPException(status_code=404, detail="Appartement non trouvé.")
+
+    comments_cursor = comment_collection.find({"appartement_id": str(appartement_id)})
+    comments = await comments_cursor.to_list(length=None)
+
+    return {"status": "ok", "data": DecodeComments(comments)}
+
+@comment_router.get("/all", response_model=dict)
+async def get_all_comments():
+    """
+    Récupérer tous les commentaires de la base de données.
+
+    Returns:
+        dict: Liste de tous les commentaires avec leur contenu, auteur, et ID associés.
+    """
+    comments_cursor = comment_collection.find({})
+    comments = await comments_cursor.to_list(length=None)
+
+    if not comments:
+        return {"status": "ok", "message": "Aucun commentaire trouvé.", "data": []}
+
+    return {"status": "ok", "data": DecodeComments(comments)}
