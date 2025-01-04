@@ -10,26 +10,25 @@ comment_router = APIRouter()
 
 # Créer un nouveau commentaire
 @comment_router.post("/new/comment")
-def create_comment(comment: Comment):
+async def create_comment(comment: Comment):
     # Vérifier si l'utilisateur existe
-    if not user_collection.find_one({"_id": ObjectId(comment.utilisateur_id)}):
+    if not await user_collection.find_one({"_id": ObjectId(comment.utilisateur_id)}):
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
-    # Vérifier l'existence de l'appartement, si spécifié
-    if comment.appartement_id and not property_collection.find_one({"_id": ObjectId(comment.appartement_id)}):
+    if comment.appartement_id and not await property_collection.find_one({"_id": ObjectId(comment.appartement_id)}):
         raise HTTPException(status_code=404, detail="Appartement non trouvé")
 
-    # Insérer le commentaire
-    comment_data = comment.dict()
-    result = comment_collection.insert_one(comment_data)
+    # Insérer le commentaire de façon asynchrone
+    result = await comment_collection.insert_one(comment.dict())
     comment_id = str(result.inserted_id)
 
     return {"status": "ok", "message": "Commentaire créé avec succès", "_id": comment_id}
 
+
 # Obtenir tous les commentaires
 @comment_router.get("/all/comments")
-def get_all_comments():
-    comments = comment_collection.find()
+async def get_all_comments():
+    comments = await comment_collection.find().to_list(length=None)  
     return {"status": "ok", "data": DecodeComments(comments)}
 
 # Obtenir un commentaire par ID
