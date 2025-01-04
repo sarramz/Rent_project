@@ -127,6 +127,43 @@ async def delete_user(user_id: str):
         )
     return {"message": "Utilisateur supprimé avec succès"}
 
+
+@router.get("/count", dependencies=[Depends(is_admin)])
+async def count_users(current_user: dict = Depends(get_current_user)):
+    """
+    Retourner le nombre total d'utilisateurs (accessible uniquement aux administrateurs).
+    """
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Utilisateur non authentifié."
+        )
+    
+    # Ensure the current user has admin privileges
+    if "admin" not in current_user.get("roles", []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'avez pas les permissions pour effectuer cette action."
+        )
+    
+    try:
+        # Count the total number of users
+        user_count = await user_collection.count_documents({})
+        return {"total_users": user_count}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors du comptage des utilisateurs: {str(e)}"
+        )
+
+
+
+
+
+
+
+
+
 # @router.delete("/{user_id}", dependencies=[Depends(is_admin)], response_model=dict)
 # async def delete_user(user_id: str):
     """

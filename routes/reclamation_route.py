@@ -8,11 +8,11 @@ from auth.auth import is_admin, get_current_user
 reclamation_router = APIRouter()
 
 @reclamation_router.post("/new/reclamation")
-def create_reclamation(reclamation: Reclamation, current_user=Depends(get_current_user)):
+async def create_reclamation(reclamation: Reclamation, current_user=Depends(get_current_user)):
     if not user_collection.find_one({"_id": ObjectId(reclamation.utilisateur_id)}):
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     reclamation_data = reclamation.dict()
-    result = reclamation_collection.insert_one(reclamation_data)
+    result = await reclamation_collection.insert_one(reclamation_data)
     return {"status": "ok", "message": "Réclamation créée", "_id": str(result.inserted_id)}
 
 @reclamation_router.get("/user/reclamations/{utilisateur_id}")
@@ -24,9 +24,10 @@ def get_user_reclamations(utilisateur_id: str, current_user=Depends(get_current_
 
 
 @reclamation_router.get("/admin/reclamations", dependencies=[Depends(is_admin)])
-def get_all_reclamations():
+async def get_all_reclamations():
     reclamations = reclamation_collection.find()
-    return {"status": "ok", "data": DecodeReclamations(reclamations)}
+    reclamations_list = await reclamations.to_list(length=None)  
+    return {"status": "ok", "data": DecodeReclamations(reclamations_list)}
 
 @reclamation_router.patch("/admin/update/reclamation/{reclamation_id}", dependencies=[Depends(is_admin)])
 def update_reclamation_status(reclamation_id: str, update: UpdateReclamationModel):

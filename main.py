@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from config.config import db
 from routes.user_route import router as user_route
@@ -20,3 +21,10 @@ app.include_router(comment_router, prefix="/comments", tags=["Comments"])
 app.include_router(facture_router, prefix="/factures", tags=["Factures"])
 app.include_router(notification_router, prefix="/notifications", tags=["Notifications"])
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['http://localhost:3000'],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
