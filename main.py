@@ -8,9 +8,17 @@ from routes.notification_route import notification_router
 from routes.reservation_route import reservation_router
 from routes.property_route import property_router
 from routes.reclamation_route import reclamation_router
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Rental Platform API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  
+    allow_credentials=True,
+    allow_methods=["*"],  
+    allow_headers=["*"],  
+)
 # Inclure les routes
 app.include_router(user_route, prefix="/users", tags=["Users"])
 app.include_router(property_router, prefix="/properties", tags=["Properties"])
