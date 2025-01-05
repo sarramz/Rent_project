@@ -135,3 +135,202 @@ async def get_notifications(
             status_code=500,
             detail="Erreur interne lors de la récupération des notifications.",
         )
+        
+
+@notification_router.get("/get/{user_id}", response_model=dict)
+async def get_notifications_for_user(
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+    limit: int = 100
+):
+    """
+    Récupérer les notifications pour un utilisateur spécifique (admin).
+    """
+    try:
+        # verife l'utilisateur est admin
+        if "admin" not in current_user["roles"]:
+            raise HTTPException(
+                status_code=403, detail="Vous n'êtes pas autorisé à accéder à ces notifications."
+            )
+
+     
+        if not ObjectId.is_valid(user_id):
+            raise HTTPException(
+                status_code=400, detail="ID utilisateur invalide."
+            )
+
+        query = {"utilisateur_id": user_id}  # Filtrer par ID utilisateur
+        notifications = await notification_collection.find(query).limit(limit).to_list(length=limit)
+
+        if not notifications:
+            return {"status": "ok", "message": "Aucune notification trouvée.", "data": []}
+
+        return {"status": "ok", "data": DecodeNotifications(notifications)}
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération des notifications : {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur interne lors de la récupération des notifications.",
+        )
+@notification_router.get("/all-notifications", response_model=dict)
+async def get_all_notifications(
+    current_user: dict = Depends(get_current_user),
+    limit: int = 100
+):
+    """
+    Récupérer toutes les notifications sans distinction d'utilisateur.
+    Seuls les administrateurs peuvent accéder à cette route.
+    """
+    try:
+        # Vérifier si l'utilisateur est admin
+        if "admin" not in current_user["roles"]:
+            raise HTTPException(
+                status_code=403, detail="Vous n'êtes pas autorisé à accéder à toutes les notifications."
+            )
+
+        # Récupérer toutes les notifications
+        notifications = await notification_collection.find({}).limit(limit).to_list(length=limit)
+
+        if not notifications:
+            return {"status": "ok", "message": "Aucune notification trouvée.", "data": []}
+
+        return {"status": "ok", "data": DecodeNotifications(notifications)}
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération de toutes les notifications : {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur interne lors de la récupération des notifications.",
+        )
+@notification_router.get("/all-notifications", response_model=dict)
+async def get_all_notifications(
+    current_user: dict = Depends(get_current_user),
+    limit: int = 100
+):
+    """
+    Récupérer toutes les notifications sans distinction d'utilisateur.
+    Seuls les administrateurs peuvent accéder à cette route.
+    """
+    try:
+        # Vérifier si l'utilisateur est admin
+        if "admin" not in current_user["roles"]:
+            raise HTTPException(
+                status_code=403, detail="Vous n'êtes pas autorisé à accéder à toutes les notifications."
+            )
+
+        # Récupérer toutes les notifications
+        notifications = await notification_collection.find({}).limit(limit).to_list(length=limit)
+
+        if not notifications:
+            return {"status": "ok", "message": "Aucune notification trouvée.", "data": []}
+
+        return {"status": "ok", "data": DecodeNotifications(notifications)}
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération de toutes les notifications : {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur interne lors de la récupération des notifications.",
+        )
+@notification_router.get("/all-notifications", response_model=dict)
+async def get_all_notifications(
+    current_user: dict = Depends(get_current_user),
+    limit: int = 100
+):
+    """
+    Récupérer toutes les notifications sans distinction d'utilisateur.
+    Seuls les administrateurs peuvent accéder à cette route.
+    """
+    try:
+        # Vérifier si l'utilisateur est admin
+        if "admin" not in current_user["roles"]:
+            raise HTTPException(
+                status_code=403, detail="Vous n'êtes pas autorisé à accéder à toutes les notifications."
+            )
+
+        # Récupérer toutes les notifications
+        notifications = await notification_collection.find({}).limit(limit).to_list(length=limit)
+
+        if not notifications:
+            return {"status": "ok", "message": "Aucune notification trouvée.", "data": []}
+
+        return {"status": "ok", "data": DecodeNotifications(notifications)}
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération de toutes les notifications : {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur interne lors de la récupération des notifications.",
+        )
+@notification_router.delete("/delete/{notification_id}", response_model=dict)
+async def delete_notification(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Supprimer une notification spécifique par son ID.
+    Seuls les administrateurs peuvent effectuer cette action.
+    """
+    try:
+        # Vérification du rôle de l'utilisateur
+        if "admin" not in current_user["roles"]:
+            raise HTTPException(
+                status_code=403, detail="Vous n'êtes pas autorisé à supprimer des notifications."
+            )
+
+        # Vérifier si l'ID de notification est valide
+        if not ObjectId.is_valid(notification_id):
+            raise HTTPException(status_code=400, detail="ID de notification invalide.")
+
+        # Rechercher et supprimer la notification
+        result = await notification_collection.delete_one({"_id": ObjectId(notification_id)})
+
+        if result.deleted_count == 0:
+            return {
+                "status": "error",
+                "message": "Aucune notification trouvée avec cet ID.",
+            }
+
+        return {
+            "status": "ok",
+            "message": f"Notification avec ID {notification_id} supprimée avec succès."
+        }
+
+    except Exception as e:
+        print(f"Erreur lors de la suppression de la notification : {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur interne lors de la suppression de la notification.",
+        )
+
+
+# @notification_router.delete("/delete-all", response_model=dict)
+# async def delete_all_notifications(
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """
+#     Supprimer toutes les notifications.
+#     Seuls les administrateurs peuvent effectuer cette action.
+#     """
+#     try:
+#         # Vérification du rôle de l'utilisateur
+#         if "admin" not in current_user["roles"]:
+#             raise HTTPException(
+#                 status_code=403, detail="Vous n'êtes pas autorisé à supprimer toutes les notifications."
+#             )
+
+#         result = await notification_collection.delete_many({})
+
+#         return {
+#             "status": "ok",
+#             "message": f"{result.deleted_count} notification(s) supprimée(s) avec succès."
+#         }
+
+#     except Exception as e:
+#         print(f"Erreur lors de la suppression de toutes les notifications : {e}")
+#         raise HTTPException(
+#             status_code=500,
+#             detail="Erreur interne lors de la suppression de toutes les notifications.",
+#         )
+

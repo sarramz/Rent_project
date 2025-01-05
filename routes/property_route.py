@@ -256,6 +256,66 @@ async def get_user_properties(
     serialized_properties = decode_properties(properties)
 
     return {"status": "ok", "data": serialized_properties}
+@property_router.get("/owner/{property_id}", response_model=dict)
+async def get_property_owner(
+    property_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Récupérer l'identifiant du propriétaire d'une propriété.
+    - Administrateurs : peuvent accéder à l'information pour n'importe quelle propriété.
+    """
+    try:
+        object_id = ObjectId(property_id)
+    except InvalidId:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Format de l'ID de la propriété invalide.",
+        )
+
+    # Récupérer la propriété depuis la base de données
+    property_ = await property_collection.find_one({"_id": object_id})
+    if not property_:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Propriété introuvable.",
+        )
+
+    # Vérifier les permissions
+    current_user_roles = current_user.get("roles", [])
+    if "admin" not in current_user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès interdit : seuls les administrateurs peuvent accéder à cette information.",
+        )
+
+    proprietaire_id = property_.get("proprietaire_id")
+    if not proprietaire_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur interne : l'identifiant du propriétaire est manquant.",
+        )
+
+    # Récupérer les détails du propriétaire
+    owner = await user_collection.find_one({"_id": ObjectId(proprietaire_id)})
+    if not owner:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Propriétaire introuvable.",
+        )
+
+    return {
+        "status": "ok",
+        "property_id": property_id,
+        "owner": {
+            "id": str(owner["_id"]),
+            "nom": owner.get("nom"),
+            "prenom": owner.get("prenom"),
+            "email": owner.get("email"),
+        },
+    }
+
+
 
 # @property_router.get("/property-with-comments/{property_id}", response_model=dict)
 # async def get_property_with_comments(
